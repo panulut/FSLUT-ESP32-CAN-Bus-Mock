@@ -1,71 +1,69 @@
-# Testauksen tila 16.10.2026
+# Validation status 2026-10-16
 
-## Suoritetut tarkistukset
+## Checks performed
 
-| Tarkistus | Tulos |
+| Check | Result |
 |---|---|
-| `python tools/check.py` | Läpäisty: 10 Python-testiä ja 725 C++-tarkistusta |
-| `powershell -NoProfile -File tools/pio.ps1 run` | Läpäisty: ESP32:n firmware kääntyy ja linkittyy |
-| Profiilin uudelleengenerointi | Generoitu otsake vastaa JSON-lähdettä |
-| Tallenteen uudelleengenerointi | Generoitu `.inc` vastaa lähdeotetta ja 190 ms:n silmukkaväliä |
-| Lähdeotteen vertailu | 49 viestiä vastaa alkuperäisen lokin rivejä 126–174 |
-| Alkuperäiset tiedostot | Kaikki 5 purettua lähdetiedostoa vastaavat tavutasolla alkuperäisen `CAN SIM.zip`-arkiston sisältöä |
+| `python tools/check.py` | Passed: 10 Python tests and 725 C++ checks |
+| `powershell -NoProfile -File tools/pio.ps1 run` | Passed: ESP32 firmware compiles and links |
+| Profile regeneration | Generated header matches the JSON source |
+| Recording regeneration | Generated `.inc` matches the source excerpt and the 190 ms loop gap |
+| Source excerpt comparison | 49 frames match lines 126–174 of the original log |
+| Original files | All 5 extracted source files match the original `CAN SIM.zip` archive byte for byte |
 
-Python-testit tarkistavat CSV/TXT-lukemisen, DLC:n ja payloadin vastaavuuden,
-ID-rajat, extended-/RTR-kehykset, aikaleimojen järjestyksen ja keston,
-puuttuvan datan käsittelyn, virheellisen muunnoksen vaikutuksen aiempaan
-tiedostoon sekä signaaliprofiilien validoinnin ja generoinnin toistettavuuden.
+The Python tests cover CSV/TXT parsing, DLC/payload consistency, ID limits,
+extended/RTR frames, timestamp ordering and duration, handling of missing data,
+the effect of a failed conversion on an existing output file, and validation and
+reproducible generation of signal profiles.
 
-C++-testit tarkistavat tunnettuja etumerkillisiä ja etumerkittömiä
-koodausvektoreita molemmilla tavujärjestyksillä, fyysisiä rajoja, 32-bittisiä
-kenttiä, synteettisen checksumin, syklisen ajastuksen, tasapuolisen lähetyksen,
-myöhästymisen, yli uint32-millisekuntirajan jatkuvan ajon, murto-osien
-kertymisen automaattirampissa, toiston ajoituksen ja järjestyksen,
-tauotuksen, silmukoinnin ja epäonnistuneen/peruutetun toistoviestin säilyttämisen.
+The C++ tests cover known signed and unsigned encoding vectors in both byte
+orders, physical limits, 32-bit fields, a synthetic checksum, cyclic scheduling,
+fair transmission, lateness, continuous running past the uint32 millisecond
+limit, fractional accumulation in automatic ramps, replay timing and order,
+pausing, looping, and retention of failed/aborted replay frames.
 
-MCP2515-testit käyttävät injektoitua rekisterimallia: kuuntelu-/normaali-/loopback-
-tilojen vaihto, tarkka bittinopeus 8/16/20 MHz:n kiteillä, virheellisten
-yhdistelmien hylkäys, jonotuksen erottaminen onnistuneesta lähetyksestä,
-aikakatkaisu, bus-off, peruutus, peruutuksen ohittava jo onnistunut lähetys,
-jumittuneen ohjaimen palautumispolku, standardi-/extended-/RTR-vastaanotto,
-virheellinen DLC ja vastaanottopuskurien ylivuodot testataan ilman laitteistoa.
-Komento- ja tulostusjonotestit kattavat virheelliset arvot, argumenttimäärät,
-liian pitkät rivit, CRLF:n, signaalialiasvirheet, tilanvaihdot,
-pysähtyneen UART-kirjoittajan, jonon kiertymisen ja kapasiteettirajat.
+The MCP2515 tests use an injected register model: listen-only/normal/loopback
+mode changes, exact bit rates with 8/16/20 MHz crystals, rejection of invalid
+combinations, distinguishing queued from successful transmission, timeout,
+bus-off, abort, an abort racing an already completed transmission, recovery of a
+stuck controller, standard/extended/RTR reception, invalid DLC and receive buffer
+overflows are all tested without hardware. Command and output queue tests cover
+invalid values, argument counts, over-long lines, CRLF, signal alias errors, mode
+changes, a stalled UART writer, queue wrap-around and capacity limits.
 
-Rekisterimalli tarkistaa ohjelmiston toimintaa. Se ei emuloi CAN:n sähköistä
-kerrosta, kaikkia ohjaimen aikakilpailuja tai todellista arbitrointia.
+The register model verifies software behaviour. It does not emulate the CAN
+electrical layer, every controller race condition or real arbitration.
 
-## Käännösympäristö ja artefakti
+## Build environment and artifact
 
 - PlatformIO Core 6.1.18, `platformio/espressif32@6.10.0`, board `esp32dev`.
-- Arduino-ESP32-paketti `3.20017.241212+sha.dcc1105b` (core 2.0.17).
-- ESP32-kääntäjä `8.4.0+2021r2-patch5`, C++17.
-- PC-testit: Python 3.13 ja Zig 0.13.0:n C++17-kääntäjä; projektin
-  C++-testit käännettiin asetuksilla `-Wall -Wextra -Werror`.
-- Firmware käyttää 36128 tavua staattista RAM-muistia / 327680 tavua (11,0 %).
-- Linkitetty ohjelma käyttää 297969 tavua / 1310720 tavua (22,7 %).
-- Latauskuva: `.pio/build/esp32dev/firmware.bin`, 298336 tavua.
-- Latauskuvan SHA-256:
+- Arduino-ESP32 package `3.20017.241212+sha.dcc1105b` (core 2.0.17).
+- ESP32 compiler `8.4.0+2021r2-patch5`, C++17.
+- PC tests: Python 3.13 and the Zig 0.13.0 C++17 compiler; the project's
+  C++ tests were built with `-Wall -Wextra -Werror`.
+- Firmware uses 36128 bytes of static RAM / 327680 bytes (11.0 %).
+- Linked program uses 297969 bytes / 1310720 bytes (22.7 %).
+- Flash image: `.pio/build/esp32dev/firmware.bin`, 298336 bytes.
+- Flash image SHA-256:
   `98baab458101909c1e863e8167487a6ff39686274a0c1beb8c3cc193c03cd4f2`.
 
-Kuvan tiiviste koskee tätä käännöstä. Uusi käännös voi sisältää eri
-metatietoja ja saada eri tiivisteen. Lataa laitteeseen PlatformIO:n
-upload-komennolla, joka käyttää myös oikeaa bootloaderia ja osiotaulua.
+The hash applies to this build only. A new build may contain different metadata
+and produce a different hash. Flash the device with the PlatformIO upload
+command, which also writes the correct bootloader and partition table.
 
-## Vielä varmistettavat asiat
+## Still to be verified
 
-1. Varsinaisen ESP32-kortin pinnit, MCP2515-moduulin kide ja transceiverin
-   sähkökytkentä eivät ole tiedossa. `board_config.h` sisältää dokumentoidut esimerkit.
-2. Ohjelmistoa ei ole ladattu eikä ajettu oikealla ESP32-/CAN-kokoonpanolla.
-   Ulkoiset ACK:t, fyysinen vastaanotto, todelliset viiveet, suurin häviötön
-   kuorma ja pitkä ajo on tarkistettava [laitteisto-ohjeella](HARDWARE_TEST.md).
-3. Auton BMS- ja moottoriviestien fyysiset määritykset eivät ole täydellisiä.
-   Oletusprofiilissa on vain 0x701/NMT_STATE. RPM-/SOC-rampin moottori ja
-   koodaus on testattu synteettisillä signaaleilla, mutta auton vastaavia
-   viestejä ei ole otettu käyttöön ilman vahvistettuja määrityksiä.
-   Katso [protokollan avoimet kohdat](PROTOCOL.md).
+1. The actual ESP32 board pinout, the MCP2515 module crystal and the transceiver
+   wiring are unknown. `board_config.h` contains documented examples.
+2. The software has not been flashed or run on a real ESP32/CAN setup.
+   External ACKs, physical reception, real latencies, maximum lossless load and
+   long runs must be checked using the [hardware test guide](HARDWARE_TEST.md).
+3. The physical definitions of the car's BMS and motor messages are incomplete.
+   The default profile contains only 0x701/NMT_STATE. The RPM/SOC ramp engine and
+   encoding are tested with synthetic signals, but the car's corresponding
+   messages are not enabled without confirmed definitions.
+   See [open protocol questions](PROTOCOL.md).
 
-Tulos on kääntyvä ja PC-testeillä tarkistettu ohjelmistototeutus. Sitä ei ole
-vielä hyväksytty todellisen auton CAN-protokollan tai fyysisen testipenkin
-korvikkeeksi.
+The result is a compiling software implementation verified by PC tests. It has
+not yet been approved as a substitute for the real car's CAN protocol or a
+physical test bench.

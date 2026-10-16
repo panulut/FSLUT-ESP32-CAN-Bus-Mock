@@ -1,60 +1,61 @@
-# Protokollan rajaus ja avoimet tiedot
+# Protocol scope and open questions
 
-Lähteet ovat alkuperäinen `CAN_SIM.md`, `CAN SIM/CAN SIM/CAN.xlsx` ja saman
-kansion `Some CAN DATA FROM MOTOR to use as mock data.txt`. Alkuperäisiä tiedostoja
-ei ole muutettu. Excelin solujen täyttövärit luettiin suoraan tiedoston
-tyyli- ja teemamäärityksistä: vihreä on accent6 `70AD47` vaalennettuna.
+The sources are the original `CAN_SIM.md`, `CAN SIM/CAN SIM/CAN.xlsx` and
+`Some CAN DATA FROM MOTOR to use as mock data.txt` in the same folder. The original
+files have not been modified. The Excel cell fill colours were read directly from
+the file's style and theme definitions: green is accent6 `70AD47`, lightened.
 
-| Viestit | Excelin Name-sivu | Toteutuksen päätös |
+| Messages | Excel `Name` sheet | Implementation decision |
 |---|---|---|
-| 0x701 | A7:J7, vihreä, NMT state; 05 operational / 7F pre-operational | Profiilissa: DLC 1, raakabittiä muuttamaton NMT_STATE. DLC varmistuu tallenteesta. Väli 1000 ms on bench-oletus. |
-| 0x500 | A18:I18, vihreä; insulator heartbeat ja kaksi CAN-virhetilaa | Ei oletusviestiä. Vahvistettava DLC, varatut tavut, virhetilojen arvot ja lähetysväli. Käyttäjä voi määrittää raakaviestiksi. |
-| 0x154, 0x128, 0x294, 0x301, 0x298 | A2:I6, pääosin keltainen; sisältö tyhjä | Vain raaka-/tallennetoisto. Tallenteessa on 0x297, kun taulukossa on 0x294: niitä ei samasteta. |
-| 0x6B0 | A8:I8, sininen | Nykyinen virta 0,1 A, jännite 0,1 V ja SOC 0,5 % näkyvät tekstissä. Tavujärjestys, etumerkki, relay-kentän leveys ja checksum puuttuvat. Ei fyysistä profiilia. |
-| 0x6B1 | A9:I9, sininen, DCL/CCL-alueella punainen huomautus | Yksikkö epäselvä jo lähteessä: 0,1 kW vai 1 A. Ei fyysistä profiilia. |
-| 0x6B2 | A10:I10, sininen | Solujännitteiden kerroin 0,0001 V ja ID-tavut näkyvät, mutta tavujärjestys, checksum ja ID-numerointi puuttuvat. |
-| 0x6B3 | A11:I11, sininen | Lämpötilojen 1 C kerroin näkyy. Etumerkki/offset ja checksum puuttuvat. |
-| 0x6B4 | A12:I12, harmaa; Explanation-sivulla sininen | Tavujen sisältö puuttuu. Ei oletusviestiä. |
-| 0x036, 0x076 | A13:I14, vaaleansininen; 0x036:n checksum-solu vihreä | Solu- ja termistorilähetteitä. Pelkkä vihreä checksum-solu ei tee koko viestistä vihreällä merkittyä vaatimuksen tarkoittamaa viestiä. |
-| 0x600, 0x601 | A15:I16, sininen | Heartbeat-/vikaviestit on siirretty myöhemmäksi. |
-| 0x007 | A17:I17, oranssi | Ei oletusviestiä. |
+| 0x701 | A7:J7, green, NMT state; 05 operational / 7F pre-operational | In profile: DLC 1, NMT_STATE with unmodified raw bits. DLC is confirmed by the recording. The 1000 ms interval is a bench default. |
+| 0x500 | A18:I18, green; insulator heartbeat and two CAN error states | No default message. DLC, reserved bytes, error state values and interval must be confirmed. Can be defined by the user as a raw message. |
+| 0x154, 0x128, 0x294, 0x301, 0x298 | A2:I6, mostly yellow; content empty | Raw/recording replay only. The recording contains 0x297 whereas the sheet lists 0x294: they are not treated as the same. |
+| 0x6B0 | A8:I8, blue | Current 0.1 A, voltage 0.1 V and SOC 0.5 % are given in text. Byte order, signedness, relay field width and checksum are missing. No physical profile. |
+| 0x6B1 | A9:I9, blue, red note in the DCL/CCL area | Unit is ambiguous in the source itself: 0.1 kW or 1 A. No physical profile. |
+| 0x6B2 | A10:I10, blue | Cell voltage scale 0.0001 V and ID bytes are given, but byte order, checksum and ID numbering are missing. |
+| 0x6B3 | A11:I11, blue | Temperature scale of 1 C is given. Signedness/offset and checksum are missing. |
+| 0x6B4 | A12:I12, grey; blue on the Explanation sheet | Byte contents missing. No default message. |
+| 0x036, 0x076 | A13:I14, light blue; checksum cell of 0x036 green | Cell and thermistor broadcasts. A single green checksum cell does not make the whole message a green-flagged message in the sense of the requirement. |
+| 0x600, 0x601 | A15:I16, blue | Heartbeat/fault messages have been deferred. |
+| 0x007 | A17:I17, orange | No default message. |
 
-## Tarkistussummat
+## Checksums
 
-`Name!B30:B33` kuvaa **solulähetteen** summan: ID + pituus 8 + tavut 0–6,
-jonka tulos rajataan tavuun. Kohdetta ei ole luotettavasti laajennettu kaikkiin
-taulukon CHECKSUM-kenttiin. BMS:n valmistajaa, mallia, konfiguraatiota tai
-virallista viestikarttaa ei toimitettu. Oletusprofiili ei siksi generoi
-tarkistussummallisia BMS-viestejä.
+`Name!B30:B33` describes the sum for the **cell broadcast**: ID + length 8 + bytes
+0–6, truncated to one byte. This has not been reliably generalised to every
+CHECKSUM field in the sheet. The BMS manufacturer, model, configuration or official
+message map were not provided. The default profile therefore does not generate
+checksummed BMS messages.
 
-Yleinen `sum_id_dlc`-algoritmi on testattu synteettisellä vertailuvektorilla.
-Se on käytettävissä vasta kun profiiliin on kirjattu algoritmin vahvistava
-`checksum_source`. Tämä kenttä dokumentoi käyttäjän tarkistuksen; generaattori
-ei pysty itsenäisesti todistamaan annetun lähteen sisältöä oikeaksi.
+The generic `sum_id_dlc` algorithm is tested with a synthetic reference vector.
+It can only be used once a `checksum_source` confirming the algorithm has been
+recorded in the profile. This field documents the user's verification; the
+generator cannot independently prove that the cited source is correct.
 
-## Mitä tarvitaan BMS-/moottorisignaalien käyttöönottoon
+## What is needed to enable BMS/motor signals
 
-Jokaiselle viestille tarvitaan valmistajan viestikartta, DBC tai muu vahvistettu
-määrittely: ID ja kehystyyppi, DLC, bittien/tavujen sijainti ja järjestys,
-etumerkillisyys, skaala ja offset, sallitut arvot, lähetysväli sekä mahdollinen
-checksum/counter-algoritmi. Vahvista vähintään yksi tunnettu fyysinen arvo ja
-sitä vastaava raakakehys riippumattomalla dekooderilla.
+Each message needs the manufacturer's message map, a DBC or another confirmed
+specification: ID and frame type, DLC, bit/byte position and order, signedness,
+scale and offset, allowed values, transmission interval and any checksum/counter
+algorithm. Confirm at least one known physical value and its corresponding raw
+frame with an independent decoder.
 
-Kun tiedot ovat käytettävissä, lisää ne `config/vehicle.json`-tiedostoon,
-generoi profiili uudelleen ja testaa tunnettuja vertailukehyksiä vastaan.
-Nimet `SOC` ja `RPM` ottavat vastaavat sarjaporttialiakset käyttöön automaattisesti.
-Koodi ei sisällä oletusta, että tehtävänannon esimerkki-API olisi auton
-vahvistettu viestikartta.
+Once the information is available, add it to `config/vehicle.json`, regenerate
+the profile and test against known reference frames. Signals named `SOC` and
+`RPM` automatically enable the corresponding serial command aliases. The code does
+not assume that the example API in the task description is the car's confirmed
+message map.
 
-## Tallenteen eheys
+## Recording integrity
 
-Alkuperäinen loki sisältää 0-aikaleimaisia SDO-lähetyksiä muiden aikaleimojen
-välissä sekä tekstiksi purettuja EMCY-rivejä ilman raakapayloadia. Koko lokin
-täydellinen ajoitettu toisto ei ole mahdollista näistä tiedoista arvaamatta.
-Muunnin hylkää nämä oletuksena. Toimitettu `examples/motor_excerpt.txt` on
-alkuperäisten rivien 126–174 muuttamaton ote kommenttiotsaketta lukuun ottamatta.
-Testi vertaa otetta alkuperäiseen lähteeseen ja generoitua dataa muuntimen tulokseen.
+The original log contains SDO transmissions with a zero timestamp in between
+other timestamps, and EMCY lines decoded to text without a raw payload. A complete
+timed replay of the full log is not possible from this data without guessing.
+The converter rejects these by default. The supplied `examples/motor_excerpt.txt`
+is an unmodified excerpt of original lines 126–174, apart from a comment header.
+A test compares the excerpt with the original source and the generated data with
+the converter output.
 
-LoRa-hakemiston `.inc`-esimerkkiä ei käytetä toiston lähteenä: siinä alkuperäisiä
-aikaleimoja ja DLC-tietoja ei ole. Seitsemän tavun `0x301`-kehys säilyy uudessa
-muuntimessa seitsemän tavun kehyksenä.
+The `.inc` example in the LoRa folder is not used as a replay source: it lacks the
+original timestamps and DLC information. The seven-byte `0x301` frame remains a
+seven-byte frame in the new converter.

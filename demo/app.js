@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 const token = document.querySelector('meta[name="demo-token"]').content;
 let sequence = 0, state = null, rows = [], busy = false, toastTimer;
-const fmt = n => Number(n).toLocaleString('fi-FI');
+const fmt = n => Number(n).toLocaleString('en-US');
 const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function toast(text, error = false) {
@@ -20,7 +20,7 @@ async function send(...commands) {
       body: JSON.stringify({commands})
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Komento epäonnistui');
+    if (!response.ok) throw new Error(data.error || 'Command failed');
     await refresh();
   } catch (error) { toast(error.message, true); }
   finally { busy = false; }
@@ -30,7 +30,7 @@ function renderLog() {
   const visible = rows.filter(e => filter === 'all' || e.kind === filter ||
     (filter === 'reply' && e.kind === 'command'));
   if (!visible.length) {
-    $('log').innerHTML = '<div class="empty-log"><span class="empty-icon">⇄</span><b>Väylä odottaa ensimmäistä viestiä</b><span>Paina Käynnistä tai kokeile tallenteen toistoa.</span></div>';
+    $('log').innerHTML = '<div class="empty-log"><span class="empty-icon">⇄</span><b>Bus is waiting for the first frame</b><span>Press Start or try replaying the recording.</span></div>';
   } else {
     const atBottom = $('log').scrollHeight - $('log').scrollTop - $('log').clientHeight < 60;
     $('log').innerHTML = visible.map(e => {
@@ -40,35 +40,35 @@ function renderLog() {
     }).join('');
     if (atBottom || visible.length < 15) $('log').scrollTop = $('log').scrollHeight;
   }
-  $('log-count').textContent = `${fmt(visible.length)} tapahtumaa · viimeiset 400`;
+  $('log-count').textContent = `${fmt(visible.length)} events · last 400`;
 }
 function render(s) {
   state = s;
-  $('connection').textContent = 'Yhteys simulaatioytimeen';
+  $('connection').textContent = 'Connected to simulation core';
   $('connection').classList.remove('offline');
   $('sent').textContent = fmt(s.sent); $('rx').textContent = fmt(s.rx); $('failed').textContent = fmt(s.failed);
-  $('clock').textContent = (s.time_ms / 1000).toFixed(1).replace('.', ',') + ' s';
-  $('mode-label').textContent = `${s.mode} · ${s.running ? 'lähetys käynnissä' : 'lähetys pysäytetty'}`;
-  $('run-label').textContent = s.fault ? 'Väylävirhe' : s.running ? 'Simulaatio käynnissä' : 'Pysäytetty';
+  $('clock').textContent = (s.time_ms / 1000).toFixed(1) + ' s';
+  $('mode-label').textContent = `${s.mode} · ${s.running ? 'transmitting' : 'transmission stopped'}`;
+  $('run-label').textContent = s.fault ? 'Bus fault' : s.running ? 'Simulation running' : 'Stopped';
   $('run-label').parentElement.className = 'runtime' + (s.fault ? ' fault' : s.running ? ' running' : '');
   if (document.activeElement !== $('mode')) $('mode').value = s.mode;
   const synthetic = s.profile === 'synthetic';
   $('vehicle-profile').classList.toggle('active', !synthetic);
   $('synthetic-profile').classList.toggle('active', synthetic);
   $('signals').hidden = !synthetic;
-  $('profile-note').textContent = synthetic ? 'Testiprofiili: RPM +600/s ja SOC −0,5 %/s AUTO-tilassa. Auton profiilia ei muuteta.' : 'Profiilin vaihto nollaa testiväylän laskurit ja pysäyttää lähetyksen.';
+  $('profile-note').textContent = synthetic ? 'Test profile: RPM +600/s and SOC −0.5 %/s in AUTO mode. The vehicle profile is not changed.' : 'Switching profiles resets the test bus counters and stops transmission.';
   for (const signal of s.signals) {
     if (signal.name === 'RPM') { $('rpm-value').textContent = fmt(signal.value); $('rpm-bar').style.width = `${signal.value / 6000 * 100}%`; }
-    if (signal.name === 'SOC') { $('soc-value').textContent = signal.value.toFixed(1).replace('.', ',') + ' %'; $('soc-bar').style.width = `${signal.value}%`; }
+    if (signal.name === 'SOC') { $('soc-value').textContent = signal.value.toFixed(1) + ' %'; $('soc-bar').style.width = `${signal.value}%`; }
     if (signal.name === 'NMT_STATE' && document.activeElement !== $('nmt')) $('nmt').value = String(signal.value);
   }
-  $('messages').innerHTML = s.messages.map(m => `<tr><td>${escape(m.id)}</td><td>${m.dlc}</td><td>${escape(m.data)}</td><td>${m.interval} ms${m.enabled ? '' : ' · pois'}</td></tr>`).join('');
+  $('messages').innerHTML = s.messages.map(m => `<tr><td>${escape(m.id)}</td><td>${m.dlc}</td><td>${escape(m.data)}</td><td>${m.interval} ms${m.enabled ? '' : ' · off'}</td></tr>`).join('');
   const nmt = s.messages.find(m => m.id === '0x701');
   if (nmt && document.activeElement !== $('interval')) $('interval').value = String(nmt.interval);
   $('progress-fill').style.width = `${(s.complete ? s.count : s.position) / s.count * 100}%`;
-  $('progress-label').textContent = `${s.complete ? s.count : s.position} / ${s.count} viestiä${s.complete ? ' · valmis' : ''}`;
+  $('progress-label').textContent = `${s.complete ? s.count : s.position} / ${s.count} frames${s.complete ? ' · done' : ''}`;
   $('loop').checked = s.loop; $('ack').checked = s.ack; $('fault-box').hidden = !s.fault;
-  $('start').textContent = s.running ? '▶ Käynnissä' : '▶ Käynnistä';
+  $('start').textContent = s.running ? '▶ Running' : '▶ Start';
   if (s.events.length) {
     rows.push(...s.events); rows = rows.slice(-400);
     const reply = s.events.filter(e => e.kind === 'reply').at(-1);
@@ -83,13 +83,13 @@ async function refresh() {
   refreshing = true;
   try {
     const response = await fetch(`/api/state?since=${sequence}`);
-    if (!response.ok) throw new Error('Tilatietoja ei saatu');
+    if (!response.ok) throw new Error('Could not fetch state');
     const s = await response.json();
     if (s.error) throw new Error(s.error);
     render(s);
   } catch (error) {
-    $('connection').textContent = 'Yhteys katkennut'; $('connection').classList.add('offline');
-    $('run-label').textContent = 'Ei yhteyttä';
+    $('connection').textContent = 'Connection lost'; $('connection').classList.add('offline');
+    $('run-label').textContent = 'Disconnected';
   } finally { refreshing = false; }
 }
 

@@ -1,46 +1,47 @@
-# Formula Student CAN-simulaattori
+# Formula Student CAN simulator
 
-ESP32:n ja MCP2515-CAN-ohjaimen ohjelmisto pöytätestaukseen. Toteutus sisältää
-syklisen lähetyksen, ajonaikaisen muokkauksen, automaattiset signaalirampit,
-aikaleimatun tallenteen toiston, CAN-vastaanoton ja USB-sarjaporttiohjauksen.
-TJA1051 hoitaa fyysisen CAN-liitännän. LoRa-esimerkin koodia ei käytetä.
+Firmware for bench testing with an ESP32 and an MCP2515 CAN controller. It
+provides cyclic transmission, runtime editing, automatic signal ramps, timed
+recording replay, CAN reception and USB serial control. A TJA1051 handles the
+physical CAN interface. The LoRa example code is not used.
 
-**Ohjelmisto on käännetty ESP32:lle ja testattu tietokoneella. Oikean laitteiston
-kytkentöjä ja väylätoimintaa ei ole vielä testattu.** Katso
-[laitteiston testausohje](docs/HARDWARE_TEST.md) ja
-[testauksen tila](docs/VALIDATION.md).
+**The firmware has been built for the ESP32 and tested on a PC. Real hardware
+wiring and bus operation have not been tested yet.** See the
+[hardware test guide](docs/HARDWARE_TEST.md) and the
+[validation status](docs/VALIDATION.md).
 
-## Viestimääritysten tila
+## Message definition status
 
-Alkuperäinen `CAN.xlsx` ei sisällä valmista protokollamääritystä. Sen `Name`-sivun
-vihreät ID-solut ovat A7 (`0x701`) ja A18 (`0x500`). Tehtävänannon heartbeat-rajaus
-on ristiriidassa tämän kanssa. Ensimmäiseen versioon on otettu pieni poikkeus:
-`0x701`:n yhden tavun NMT-tila, jonka pituus ja arvot näkyvät myös tallenteessa.
-Oletusarvo on `0x05` (operational), lähetysväli 1000 ms on muokattava
-testioletus. Ohjelma käynnistyy pysäytettynä ja CAN-ohjain kuuntelutilassa.
+The original `CAN.xlsx` does not contain a finished protocol specification. The
+green ID cells on its `Name` sheet are A7 (`0x701`) and A18 (`0x500`). The task's
+exclusion of heartbeats conflicts with this. The first version makes one small
+exception: the one-byte NMT state of `0x701`, whose length and values also appear
+in the recording. The default value is `0x05` (operational), and the 1000 ms
+interval is an editable test default. The firmware starts stopped, with the CAN
+controller in listen-only mode.
 
-`0x500`:n DLC ja varatut tavut eivät ole vahvistettuja, joten viestiä ei luoda
-oletuksena. Sinisten BMS-viestien tavujärjestystä, etumerkkejä ja tarkistussummia
-ei arvata. `SET_SOC` ja `SET_RPM` antavat selkeän virheen, kunnes vastaavat
-vahvistetut signaalit on lisätty profiiliin. Tämä versio ei siis vielä väitä
-toteuttavansa auton kaikkia fyysisiä signaaleja. Lisätiedot:
-[protokollan avoimet kohdat](docs/PROTOCOL.md).
+The DLC and reserved bytes of `0x500` are not confirmed, so the message is not
+created by default. Byte order, signedness and checksums of the blue BMS messages
+are not guessed. `SET_SOC` and `SET_RPM` return a clear error until the
+corresponding confirmed signals are added to the profile. This version therefore
+does not yet claim to implement all of the car's physical signals. More details:
+[open protocol questions](docs/PROTOCOL.md).
 
-Raakaviestit voi lisätä tietoisesti `ADD`-komennolla. Tallenteiden toisto säilyttää
-niiden omat ID:t ja datan; sitä ei rajata vihreisiin viesteihin.
+Raw messages can be added deliberately with the `ADD` command. Recording replay
+keeps the recording's own IDs and data; it is not limited to green messages.
 
-## Kytkennät ja asetukset
+## Wiring and configuration
 
-Haluatko ensin kokeilla ilman laitteistoa? Käynnistä `python tools/demo.py` ja
-avaa [paikallinen selain-demo](http://127.0.0.1:8765).
-Demossa voi kokeilla samaa C++-ydintä, tallenteita ja komentoja ohjelmallisella
-testiväylällä. [Demon ohje ja esimerkit](demo/README.md).
+Want to try it without hardware first? Run `python tools/demo.py` and
+open the [local browser demo](http://127.0.0.1:8765).
+The demo runs the same C++ core, recordings and commands on a software test bus.
+[Demo guide and examples](demo/README.md).
 
-Muokkaa `include/board_config.h` oman kortin ja moduulin mukaan. Nykyiset
-**esimerkkiasetukset** ovat klassinen ESP32 Dev Module, MCP2515:n 16 MHz:n kide,
-1 Mbit/s ja SPI-nopeus 1 MHz:
+Edit `include/board_config.h` to match your board and module. The current
+**example settings** are a classic ESP32 Dev Module, a 16 MHz MCP2515 crystal,
+1 Mbit/s and 1 MHz SPI:
 
-| ESP32 | MCP2515-moduuli |
+| ESP32 | MCP2515 module |
 |---|---|
 | GPIO18 | SCK |
 | GPIO19 | SO / MISO |
@@ -48,24 +49,24 @@ Muokkaa `include/board_config.h` oman kortin ja moduulin mukaan. Nykyiset
 | GPIO5 | CS |
 | GND | GND |
 
-INT-liitäntää ei tarvita: vastaanotto tarkistetaan toistuvasti SPI:n kautta.
-GPIO5 on klassisen ESP32:n käynnistysasetuksiin vaikuttava pinni; tarkista
-kortin kytkentä tai valitse sopiva toinen CS-pinni.
+No INT connection is needed: reception is polled over SPI.
+GPIO5 is a strapping pin on the classic ESP32 that affects boot; check your board
+wiring or choose another suitable CS pin.
 
-Tarkista moduulin käyttöjännite ja logiikkatasot ennen kytkentää. ESP32:n GPIO:t
-eivät siedä 5 V:n signaaleja. TJA1051:n eri versioiden syöttö- ja VIO-kytkennät
-eroavat toisistaan; tarkista juuri oman komponentin datalehti. MCP2515:n TXCAN/RXCAN
-liitetään transceiveriin ja transceiverin CANH/CANL testiväylään. Väylän kummassakin
-fyysisessä päässä on oltava asianmukainen 120 ohmin päätevastus sekä yhteinen
-maareferenssi. Käytä tätä vain erillisessä testipenkissä.
+Check the module's supply voltage and logic levels before wiring. ESP32 GPIOs
+are not 5 V tolerant. Supply and VIO wiring differs between TJA1051 variants;
+check the datasheet of your exact part. The MCP2515 TXCAN/RXCAN connect to the
+transceiver and the transceiver's CANH/CANL to the test bus. Each physical end of
+the bus needs a proper 120 ohm termination resistor, plus a common ground
+reference. Use this only on a dedicated test bench.
 
-## Kääntäminen ja lataus
+## Building and flashing
 
-Projekti käyttää PlatformIO:ta. ESP32-alusta on lukittu versioon 6.10.0
-(Arduino-ESP32 2.0.17). Ulkopuolisia CAN-kirjastoja ei tarvita; mukana on rajattu,
-rekisteritasolla testattava MCP2515-ajuri.
+The project uses PlatformIO. The ESP32 platform is pinned to version 6.10.0
+(Arduino-ESP32 2.0.17). No external CAN libraries are needed; a minimal MCP2515
+driver that is testable at register level is included.
 
-Kun PlatformIO on asennettuna:
+With PlatformIO installed:
 
 ```powershell
 python tools/generate_profile.py config/vehicle.json include/vehicle_profile.h
@@ -75,25 +76,25 @@ pio run --target upload --upload-port COM5
 pio device monitor --port COM5 --baud 115200
 ```
 
-Vaihda `COM5` oman laitteen portiksi. Tässä työtilassa PlatformIO asennettiin
-paikallisesti `.tools`-kansioon. Sen kanssa samat komennot ovat
+Replace `COM5` with your device's port. In this workspace PlatformIO was installed
+locally into the `.tools` folder. With it, the same commands are
 `powershell -File tools/pio.ps1 run`,
-`powershell -File tools/pio.ps1 run --target upload --upload-port COM5` ja
+`powershell -File tools/pio.ps1 run --target upload --upload-port COM5` and
 `powershell -File tools/pio.ps1 device monitor --port COM5 --baud 115200`.
-Laitteelle latausta ei ole tehty tämän toteutuksen yhteydessä.
+The firmware has not been flashed to a device as part of this implementation.
 
-Jos PlatformIO puuttuu toisesta työtilasta, asenna PlatformIO IDE tai Pythonin
-virtuaaliympäristöön `platformio==6.1.18`. Tämän jälkeen käytä ympäristön
-`python -m platformio` -komentoa `pio`-komennon tilalla.
+If PlatformIO is missing from another workspace, install PlatformIO IDE or install
+`platformio==6.1.18` into a Python virtual environment. Then use that environment's
+`python -m platformio` command instead of `pio`.
 
-## Ensimmäinen kokeilu
+## First try
 
-Sarjaportti käyttää 115200 baudia. Komennot ovat kirjainkoon huomioivia.
-Päätä komento LF-, CR- tai CRLF-rivinvaihtoon. Lähetä komento kerrallaan ja odota
-vastausta. Numero on desimaali tai `0x`-alkuinen heksadesimaali: `50` tarkoittaa
-desimaalilukua 50, `0x50` lukua 80. Fyysisissä arvoissa käytetään desimaalipistettä.
+The serial port runs at 115200 baud. Commands are case sensitive.
+Terminate each command with LF, CR or CRLF. Send one command at a time and wait
+for the reply. Numbers are decimal or `0x`-prefixed hexadecimal: `50` means
+decimal 50, `0x50` means 80. Physical values use a decimal point.
 
-Ilman toista CAN-solmua voi käyttää MCP2515:n sisäistä loopback-tilaa:
+Without a second CAN node you can use the MCP2515's internal loopback mode:
 
 ```text
 CONFIG 500000 16000000 LOOPBACK
@@ -103,11 +104,11 @@ STATUS
 STOP
 ```
 
-Loopback tarkistaa ohjaimen sisäisen lähetys-/vastaanottopolun. Se ei tarkista
-transceiveria, kaapelointia tai toisen solmun ACK-kuittausta.
+Loopback checks the controller's internal transmit/receive path. It does not check
+the transceiver, cabling or acknowledgement by another node.
 
-Normaalissa testiväylässä toinen aktiivinen CAN-solmu tarvitaan kuittaamaan
-lähetykset. Pelkkä kuunteleva adapteri ei riitä:
+On a normal test bus a second active CAN node is needed to acknowledge
+transmissions. A listen-only adapter is not enough:
 
 ```text
 CONFIG 1000000 16000000 NORMAL
@@ -120,49 +121,49 @@ STATUS
 STOP
 ```
 
-## Komennot
+## Commands
 
-| Komento | Toiminta |
+| Command | Action |
 |---|---|
-| `HELP` | Komentojen nimet |
-| `START` / `STOP` | Käynnistä nykyinen tila / pysäytä ja pyydä odottavan lähetyksen peruutusta |
-| `PAUSE` | Pysäytä ajastus; jo jonossa oleva viesti saa valmistua |
-| `STATUS` | Tila, asetukset, jonotus-/onnistumis-/virhelaskurit ja monitoroinnin pudotukset |
-| `LIST` | Viestit ja fyysisten signaalien määritykset; päättyy `OK END LIST` |
-| `MODE MANUAL` | Sykliset viestit käyttäjän arvoilla |
-| `MODE AUTO` | Sykliset viestit ja profiiliin määritetyt lineaariset rampit |
-| `MODE PLAYBACK` | Tallenteen toisto |
-| `SET 0x701 0 5` | Raakaviestin tavun muokkaus; tavuindeksi alkaa nollasta |
-| `SET_SIGNAL NMT_STATE 127` | Nimetyn signaalin fyysinen arvo |
-| `SET_SOC 75.5` / `SET_RPM 3500` | Aliakset profiilin `SOC`-/`RPM`-signaaleille; oletusprofiilissa niitä ei ole |
-| `FRAME 0x701 1 0x05` | Päivitä olemassa oleva koko viesti: ID, DLC, tavut |
-| `ADD 0x500 100 3 0x05 0 0` | Esimerkki **käyttäjän määrittelemästä raakaviestistä**: ID, väli ms, DLC, tavut; ei vahvistettu auton 0x500-määritys |
-| `ENABLE 0x701 OFF` / `ON` | Poista viesti syklisestä lähetyksestä / ota käyttöön |
-| `INTERVAL 0x701 1000` | Lähetysväli 1..3600000 ms |
-| `PLAY` | Valitse toisto tarvittaessa ja aloita/jatka |
-| `RESTART` | Palauta toisto alkuun; ensin `PAUSE` tai `STOP`, sitten `RESTART` ja `PLAY` |
-| `LOOP ON` / `OFF` | Toiston silmukointi |
-| `MONITOR ON` / `OFF` | RX- ja TX-tulostus yhdessä |
-| `MONITOR RX ON` / `MONITOR TX OFF` | Suunnat erikseen |
-| `FILTER 0x301` / `FILTER OFF` | Monitoritulostuksen ID-suodatin; vastaanottolaskuri laskee kaikki viestit |
-| `CONFIG 500000 8000000 NORMAL` | Bittinopeus, MCP2515:n kide Hz, NORMAL/LOOPBACK; vain pysäytettynä |
-| `RECOVER` | Alusta CAN-ohjain uudelleen nykyisillä asetuksilla; vain pysäytettynä |
+| `HELP` | Command names |
+| `START` / `STOP` | Start the current mode / stop and request abort of a pending transmission |
+| `PAUSE` | Pause scheduling; a frame already queued may complete |
+| `STATUS` | State, settings, queued/success/error counters and monitor drops |
+| `LIST` | Messages and physical signal definitions; ends with `OK END LIST` |
+| `MODE MANUAL` | Cyclic messages with user values |
+| `MODE AUTO` | Cyclic messages plus linear ramps defined in the profile |
+| `MODE PLAYBACK` | Recording replay |
+| `SET 0x701 0 5` | Edit one raw message byte; byte index starts at zero |
+| `SET_SIGNAL NMT_STATE 127` | Physical value of a named signal |
+| `SET_SOC 75.5` / `SET_RPM 3500` | Aliases for the profile's `SOC`/`RPM` signals; not present in the default profile |
+| `FRAME 0x701 1 0x05` | Update a whole existing message: ID, DLC, bytes |
+| `ADD 0x500 100 3 0x05 0 0` | Example of a **user-defined raw message**: ID, interval ms, DLC, bytes; not a confirmed definition of the car's 0x500 |
+| `ENABLE 0x701 OFF` / `ON` | Remove a message from / return it to cyclic transmission |
+| `INTERVAL 0x701 1000` | Transmission interval 1..3600000 ms |
+| `PLAY` | Select replay if needed and start/resume |
+| `RESTART` | Rewind replay; first `PAUSE` or `STOP`, then `RESTART` and `PLAY` |
+| `LOOP ON` / `OFF` | Replay looping |
+| `MONITOR ON` / `OFF` | RX and TX output together |
+| `MONITOR RX ON` / `MONITOR TX OFF` | Each direction separately |
+| `FILTER 0x301` / `FILTER OFF` | ID filter for monitor output; the receive counter counts all frames |
+| `CONFIG 500000 8000000 NORMAL` | Bit rate, MCP2515 crystal Hz, NORMAL/LOOPBACK; only when stopped |
+| `RECOVER` | Reinitialise the CAN controller with current settings; only when stopped |
 
-Tilan vaihto ja uudelleenalustus vaativat pysäytyksen sekä mahdollisen odottavan
-lähetyksen valmistumisen. `STOP` ei pysty vetämään takaisin jo väylällä olevaa
-viestiä. Peruutettu toistoviesti säilytetään seuraavaa `PLAY`-komentoa varten.
-`RESTART` ei aloita lähetystä itsestään. Kerran loppuun toistettu tallenne vaatii
-`RESTART`-komennon ennen uutta `PLAY`-komentoa. `ENABLE` vaikuttaa vain syklisiin
-viesteihin, ei tallenteeseen. Ajonaikaiset muutokset eivät säily uudelleenkäynnistyksessä.
+Mode changes and reinitialisation require stopping and completion of any pending
+transmission. `STOP` cannot pull back a frame already on the bus. An aborted
+replay frame is kept for the next `PLAY`. `RESTART` does not start transmitting by
+itself. A recording that has played to the end once requires `RESTART` before a new
+`PLAY`. `ENABLE` affects only cyclic messages, not the recording. Runtime changes
+are not preserved across reboots.
 
-Vain `CONFIG`/`RECOVER` ja CAN-tilan vaihto voivat odottaa laitteistoa rajatun
-ajan. Aktiivisessa lähetyksessä, toistossa ja monitoroinnissa ei käytetä odottavia
-viivesilmukoita. Virheelliset komentorivit hylätään kokonaisina ennen viestin
-päivitystä. Enimmäispituus on 191 merkkiä.
+Only `CONFIG`/`RECOVER` and CAN mode changes may wait on hardware, for a bounded
+time. Active transmission, replay and monitoring use no blocking delay loops.
+Invalid command lines are rejected as a whole before any message is updated.
+Maximum length is 191 characters.
 
-## Tallenteet
+## Recordings
 
-CSV-muoto:
+CSV format:
 
 ```csv
 timestamp_ms,can_id,dlc,data
@@ -170,137 +171,140 @@ timestamp_ms,can_id,dlc,data
 110,0x6B0,8,01 02 03 04 05 06 07 08
 ```
 
-Valinnaiset `extended`- ja `rtr`-sarakkeet hyväksyvät `true`/`false` tai `1`/`0`.
-Ilman `extended`-saraketta yli 0x7FF:n ID tulkitaan laajennetuksi. Pienen ID:n
-laajennettu kehys vaatii `extended=true`. RTR-kehyksen data on tyhjä, mutta DLC
-voi olla 0..8. Sykliset sarjaporttikomennot ja signaaliprofiilit käyttävät
-11-bittisiä datakehyksiä; tallennetoisto ja vastaanotto tukevat myös 29-bittisiä
-ja RTR-kehyksiä. CAN FD:tä ei tueta.
+The optional `extended` and `rtr` columns accept `true`/`false` or `1`/`0`.
+Without an `extended` column, an ID above 0x7FF is treated as extended. An extended
+frame with a small ID requires `extended=true`. RTR frames have empty data, but the
+DLC may be 0..8. Cyclic serial commands and signal profiles use 11-bit data frames;
+recording replay and reception also support 29-bit and RTR frames. CAN FD is not
+supported.
 
-TXT-muoto:
+TXT format:
 
 ```text
 0x0301 2144402 PDO { 0x0D 0x05 0x16 0x00 0x00 0x00 0x00 }
 ```
 
-Muunnin tarkistaa ID:t, DLC:n, kaikki tavut ja aikaleimojen järjestyksen.
-Ensimmäinen aikaleima siirretään nollaan; muut suhteelliset ajat säilyvät.
-Samalla aikaleimalla olevien viestien järjestys säilyy. Tallennetta ei järjestetä
-uudelleen eikä seitsemän tavun viestejä pidennetä kahdeksaan tavuun.
+The converter validates IDs, DLC, every byte and timestamp order.
+The first timestamp is shifted to zero; other relative times are preserved.
+The order of frames with the same timestamp is preserved. The recording is not
+reordered and seven-byte frames are not padded to eight bytes.
 
-Mukana oleva ote sisältää 49 peräkkäistä raakaviestiriviä alkuperäisen tallenteen
-riveiltä 126–174. Kesto on 1805 ms; viimeisen viestin ja seuraavan kierroksen
-ensimmäisen väliksi valittiin esimerkissä 190 ms. Tämä silmukan rajaväli on
-testiasetus. Alkuperäisessä kokonaislogissa on ajattomia SDO-rivejä, puuttuvia
-EMCY-payload-tietoja ja adapterin teksti-ilmoituksia; se pitää rajata sopiviin
-tallennusjaksoihin ennen häviötöntä toistoa. `--skip-decoded-events` sallii
-EMCY-tekstirivien ohituksen **ilmoittaen ohitettujen rivien määrän**. Se ei korjaa
-SDO-aikaleimoja. `--ignore-nonframes` sallii muun tekstimuotoisen metadatan
-ohituksen, mutta ei rikkinäisiä `0x`-alkuisia viestirivejä.
+The included excerpt contains 49 consecutive raw frame lines from lines 126–174 of
+the original recording. Its duration is 1805 ms; the example uses a 190 ms gap
+between the last frame and the first frame of the next loop. This loop gap is a
+test setting. The full original log contains untimed SDO lines, missing EMCY
+payloads and adapter text notices; it must be trimmed to suitable recording
+segments before lossless replay. `--skip-decoded-events` allows skipping EMCY text
+lines **while reporting the number of skipped lines**. It does not fix SDO
+timestamps. `--ignore-nonframes` allows skipping other textual metadata, but not
+malformed `0x`-prefixed frame lines.
 
 ```powershell
-python tools/can_to_inc.py oma.csv include/recording.inc --loop-gap-ms 50
+python tools/can_to_inc.py my.csv include/recording.inc --loop-gap-ms 50
 ```
 
-Raja on oletuksena 100000 viestiä (`--max-frames`). Tallenne sijoitetaan
-`constexpr`-taulukkona ESP32:n flash-muistiin, eikä sitä kopioida työmuistiin.
-Tämä rakenne käyttää tällä työkaluketjulla noin 20 tavua/viesti. Todellinen
-enimmäiskoko riippuu firmware-osiosta; kääntäjä tarkistaa lopullisen koon.
-Tallenteen suhteellinen enimmäiskesto on uint32-millisekuntia, noin 49,7 päivää.
-Tallenne pitää kääntää ja ladata firmwareen uudelleen muunnoksen jälkeen.
+The default limit is 100000 frames (`--max-frames`). The recording is placed in
+ESP32 flash as a `constexpr` array and is not copied to RAM. With this toolchain
+the structure uses about 20 bytes per frame. The actual maximum size depends on
+the firmware partition; the compiler checks the final size. The maximum relative
+recording duration is uint32 milliseconds, about 49.7 days. After conversion the
+firmware must be rebuilt and reflashed.
 
-## Signaaliprofiilin laajentaminen
+## Extending the signal profile
 
-Muokkaa `config/vehicle.json` ja suorita `generate_profile.py`. Kullekin viestille
-määritetään ID, DLC, oletustavut, lähetysväli, tarkistussumma ja protokollalähde.
-Signaalilla on nimi, ensimmäinen tavu, leveys 1–4 tavua, tavujärjestys,
-etumerkillisyys, kerroin, offset, fyysiset rajat ja oletusarvo.
+Edit `config/vehicle.json` and run `generate_profile.py`. Each message defines
+ID, DLC, default bytes, interval, checksum and protocol source. Each signal has a
+name, first byte, width of 1–4 bytes, byte order, signedness, scale, offset,
+physical limits and default value.
 
-Koodaus on `raw = round((physical - offset) / scale)`. Lähin esitettävä arvo
-lähetetään; esimerkiksi SOC:n 0,5 % resoluutio vaatii kertoimen 0.5, jos se
-vahvistetaan protokollasta. Bitin sisäisiä kenttiä ei vielä ole: niitä voi muokata
-raakana tai lisätä erillisen tarkistetun koodauksen. Päällekkäiset kentät ja
-esittämättömät rajat hylätään. Nimet ovat yksilöllisiä ja isoilla kirjaimilla.
+The encoding is `raw = round((physical - offset) / scale)`. The nearest
+representable value is sent; for example SOC's 0.5 % resolution requires a scale of
+0.5, if confirmed by the protocol. Sub-byte bit fields are not supported yet: they
+can be edited as raw bytes or added as a separately verified encoding. Overlapping
+fields and unrepresentable limits are rejected. Names are unique and uppercase.
 
-`rate_per_second` ohjaa AUTO-tilan lineaarista muutosta. Positiivinen arvo
-kasvattaa ja negatiivinen vähentää arvoa sekunnissa; minimiin tai maksimiin
-saavuttaessa arvo jää rajalle. Näin voidaan määrittää RPM-nousu, SOC-lasku ja
-virran muutos heti kun niiden autonkohtainen koodaus on vahvistettu.
-Oletusprofiilin NMT_STATE-arvo ei muutu AUTO-tilassa.
+`rate_per_second` drives the linear change in AUTO mode. A positive value
+increases and a negative value decreases the value per second; on reaching the
+minimum or maximum the value stays at the limit. This allows defining an RPM
+rise, SOC drop and current change as soon as their car-specific encoding is
+confirmed. The default profile's NMT_STATE value does not change in AUTO mode.
 
-`checksum="sum_id_dlc"` on **vain erikseen vahvistettavaa protokollaa varten**:
-kahdeksannen tavun arvoksi tulee `(CAN_ID + DLC + sum(bytes[0:7])) & 0xFF`.
-Generaattori vaatii tällöin `checksum_source`-kentän. Oletusprofiilissa algoritmia
-ei käytetä. Excelin solulähetteen kuvausta ei ole yleistetty BMS-viesteihin.
+`checksum="sum_id_dlc"` is **only for a separately confirmed protocol**:
+the eighth byte becomes `(CAN_ID + DLC + sum(bytes[0:7])) & 0xFF`.
+The generator then requires a `checksum_source` field. The default profile does
+not use the algorithm. The Excel description of the cell broadcast has not been
+generalised to BMS messages.
 
-C++-rajapinta on `Simulator::add`, `setMessage`, `setByte`, `setSignal`,
+The C++ API is `Simulator::add`, `setMessage`, `setByte`, `setSignal`,
 `setBatterySOC`, `setRPM`, `setInterval`, `start`, `stop`, `setMode`, `load`,
-`restart` ja `tick`. `Transport::offer` erottaa viestin muodostuksen laitteistosta.
-Laitteisto ilmoittaa jonotetun toistoviestin tuloksen `transmitResult`-metodilla
-ennen seuraavaa toistoviestiä. Rajapinta on yhden pääsilmukan käyttöön; sitä ei
-pidä kutsua samanaikaisesti keskeytyksestä tai toisesta FreeRTOS-tehtävästä.
+`restart` and `tick`. `Transport::offer` separates frame building from hardware.
+The hardware reports the result of a queued replay frame with `transmitResult`
+before the next replay frame. The API is meant for a single main loop; it must not
+be called concurrently from an interrupt or another FreeRTOS task.
 
-## Ajoitus, virheet ja kapasiteetti
+## Timing, errors and capacity
 
-- Ajastus käyttää ESP32:n 64-bittistä monotonista kelloa. `millis()`-ylivuoto
-  ei katkaise pitkää ajoa.
-- Sykliset viestit käyttävät vaiheeseen sidottuja määräaikoja ja tasapuolista
-  vuorottelua. Myöhästyneitä syklisiä kierroksia ohitetaan; `cyclic_skipped`
-  kertoo määrän. Vanhentuneita viestejä ei lähetetä purskeena.
-- Toistosta ei pudoteta viestejä puskurin täyttyessä. Aikataulusta myöhästyneet
-  viestit lähetetään järjestyksessä; `replay_late` laskee jonotushetken myöhästymiset.
-  Aikataulu on millisekuntitasoinen tavoite. Väylän arbitrointi ja kuorma voivat
-  viivästyttää todellista lähetystä.
-- Käytössä on yksi CAN-lähetyspuskuri viestijärjestyksen säilyttämiseksi.
-  `TX_QUEUED` on hyväksyttyjen lähetyspyyntöjen määrä ja `TX_OK` ohjaimen
-  onnistuneiksi ilmoittamien määrä. Loopback-tilassa TX_OK ei tarkoita ulkoista ACK:ta.
-- Bus-off tai yli 100 ms odottava lähetys pysäyttää ajon. Korjaa syy ja käytä
-  `RECOVER`, sitten `PLAY`/`START`. Epäonnistunut toistoviesti jää uudelleenyritykseen.
-  Ohjain voi yrittää samaa kehystä uudelleen aikakatkaisuun asti.
-  Jos ohjain ei vastaa peruutukseenkaan, 200 ms:n kohdalla ohjelmiston
-  lähetyspyyntö vapautetaan virheellisenä ja ohjain merkitään alustamattomaksi,
-  jotta `RECOVER` voi yrittää laitteiston resetointia.
-- RX tarkistetaan jokaisella pääsilmukan kierroksella, ja MCP2515:n molemmat
-  vastaanottopuskurit ovat käytössä. Ylivuodot lasketaan. Suurin häviötön
-  kuorma pitää mitata oikealla laitteistolla; yhden megabitin nimellisnopeus
-  ei tarkoita, että täysi väyläkuorma voitaisiin tulostaa sarjaporttiin.
-- Sarjatulostus käyttää kiinteää 8192 tavun jonoa, josta 1024 tavua varataan
-  vastauksille. UART:iin kirjoitetaan vain vapaan puskuritilan verran. Monitorin
-  ylikuorma pudottaa **tulosterivejä**, ja `monitor_drop` näyttää määrän.
-  Myös vastausten mahdollinen hävikki näkyy `reply_drop`-laskurissa. Asetukset
-  ja viestimuisti ovat kiinteäkokoisia: 32 viestiä ja 64 signaalia.
-- Tarkka bittiajoitus lasketaan 8/16/20 MHz:n kiteelle. Mahdoton yhdistelmä,
-  kuten 8 MHz ja 1 Mbit/s vähintään kahdeksalla aikakvantilla, hylätään.
-  Näytepiste näkyy `STATUS`-tulosteessa; pitkän kaapeloinnin ajoitus on mitattava.
+- Scheduling uses the ESP32's 64-bit monotonic clock. `millis()` overflow
+  does not interrupt long runs.
+- Cyclic messages use phase-locked deadlines and fair round-robin. Late cyclic
+  rounds are skipped; `cyclic_skipped` reports how many. Stale messages are not
+  sent in a burst.
+- Replay never drops frames when the buffer is full. Frames that are behind
+  schedule are sent in order; `replay_late` counts lateness at queueing time.
+  The schedule is a millisecond-level target. Bus arbitration and load can
+  delay the actual transmission.
+- A single CAN transmit buffer is used to preserve frame order.
+  `TX_QUEUED` is the number of accepted transmit requests and `TX_OK` the number
+  the controller reported as successful. In loopback mode TX_OK does not mean an
+  external ACK.
+- Bus-off or a transmission waiting more than 100 ms stops the run. Fix the cause
+  and use `RECOVER`, then `PLAY`/`START`. A failed replay frame is kept for retry.
+  The controller may retry the same frame until the timeout.
+  If the controller does not respond to an abort either, at 200 ms the software
+  transmit request is released as failed and the controller is marked
+  uninitialised so that `RECOVER` can attempt a hardware reset.
+- RX is checked on every main loop iteration, and both MCP2515 receive buffers
+  are used. Overruns are counted. The maximum lossless load must be measured on
+  real hardware; a nominal 1 Mbit/s does not mean a fully loaded bus can be
+  printed to the serial port.
+- Serial output uses a fixed 8192-byte queue, of which 1024 bytes are reserved
+  for replies. Only as much as fits in the free buffer space is written to the
+  UART. Monitor overload drops **output lines**, and `monitor_drop` shows the
+  count. Any loss of replies is shown in the `reply_drop` counter. Settings
+  and message storage are fixed size: 32 messages and 64 signals.
+- Exact bit timing is computed for 8/16/20 MHz crystals. An impossible
+  combination, such as 8 MHz and 1 Mbit/s with at least eight time quanta, is
+  rejected. The sample point is shown in `STATUS`; timing for long cabling must
+  be measured.
 
-## Testit ja rakenne
+## Tests and structure
 
 ```powershell
 python tools/check.py
 ```
 
-Tarvitsee Python 3.10+:n ja C++17-kääntäjän. `--cxx POLKU` valitsee g++/clang++/Zig-
-kääntäjän. Tässä työtilassa mukana oleva paikallinen Zig löytyy automaattisesti.
-Python-työkaluilla ei ole ulkopuolisia riippuvuuksia. PC-testit eivät tarvitse
-Arduino-kirjastoja tai laitetta.
+Requires Python 3.10+ and a C++17 compiler. `--cxx PATH` selects a g++/clang++/Zig
+compiler. A local Zig in this workspace is found automatically.
+The Python tools have no external dependencies. The PC tests need no Arduino
+libraries or device.
 
-| Polku | Sisältö |
+| Path | Contents |
 |---|---|
-| `src/main.cpp` | ESP32:n pääsilmukka, SPI ja sarjaportti |
-| `include/can_core.h` | Viestit, signaalit, ajastus, automatiikka ja toisto |
-| `include/mcp2515.h` | Ohjain, bittiajoitus ja lähetys-/vastaanottotila |
-| `include/commands.h` | Validoitu komentoparseri |
-| `include/output_queue.h` | Rajattu, odottamaton tulostusjono |
-| `config/vehicle.json` | Muokattava lähde viestimäärityksille |
-| `include/vehicle_profile.h` | Generoitu profiili |
-| `include/recording.inc` | Generoitu tallenne |
-| `examples/motor_excerpt.txt` | Alkuperäisestä tallenteesta otettu esimerkki |
-| `tools/` | Muuntimet, testiajo ja paikallisen PlatformIO:n käynnistys |
-| `tests/` | C++- ja Python-testit |
+| `src/main.cpp` | ESP32 main loop, SPI and serial port |
+| `include/can_core.h` | Messages, signals, scheduling, automation and replay |
+| `include/mcp2515.h` | Controller, bit timing and transmit/receive state |
+| `include/commands.h` | Validated command parser |
+| `include/output_queue.h` | Bounded, non-blocking output queue |
+| `config/vehicle.json` | Editable source for message definitions |
+| `include/vehicle_profile.h` | Generated profile |
+| `include/recording.inc` | Generated recording |
+| `examples/motor_excerpt.txt` | Excerpt from the original recording |
+| `tools/` | Converters, test runner and local PlatformIO launcher |
+| `tests/` | C++ and Python tests |
 
-MCP2515-ajuri perustuu [Microchipin datalehteen DS20001801K](https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Family-Data-Sheet-DS20001801K.pdf),
-erityisesti lähetys-, vastaanotto-, bittiajoitus- ja SPI-rekisterien kuvauksiin.
-Muut tekniset lähteet:
+The MCP2515 driver is based on [Microchip datasheet DS20001801K](https://ww1.microchip.com/downloads/en/DeviceDoc/MCP2515-Family-Data-Sheet-DS20001801K.pdf),
+in particular the descriptions of the transmit, receive, bit timing and SPI
+registers. Other technical sources:
 [ESP32 SPI](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/spi.html),
-[ESP32 UART](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/serial.html) ja
+[ESP32 UART](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/serial.html) and
 [PlatformIO esp32dev](https://docs.platformio.org/en/stable/boards/espressif32/esp32dev.html).
