@@ -1,0 +1,53 @@
+name: Build and test
+on: [push, pull_request, workflow_dispatch]
+env:
+  PLATFORMIO_SETTING_ENABLE_TELEMETRY: "no"
+permissions:
+  contents: read
+jobs:
+  software:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python tools/check.py
+      - run: node --check demo/app.js
+      - name: Address and undefined behaviour checks
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I include tests/test_core.cpp -o build/test_core_sanitized
+          ./build/test_core_sanitized
+      - run: npm install --prefix .tools/browser --no-audit --no-fund playwright@1.61.1
+      - run: .tools/browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Browser acceptance test
+        run: |
+          python -u tools/demo.py --no-open > build/demo-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          python - <<'PY'
+          import time, urllib.request
+          for attempt in range(100):
+              try:
+                  urllib.request.urlopen('http://127.0.0.1:8765', timeout=1)
+                  break
+              except OSError:
+                  time.sleep(0.1)
+          else:
+              raise SystemExit('demo server did not start')
+          PY
+          node tools/test_demo_browser.cjs
+  firmware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install platformio==6.1.18
+      - run: python -m platformio run

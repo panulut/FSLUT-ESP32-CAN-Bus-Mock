@@ -23,9 +23,11 @@ both directions is enabled by default in the demo.
 
 ## Try this
 
-1. **Current vehicle profile → Start.** The monitor shows `0x701`, DLC 1, data
-   `05` once per second. Change the state to `7F · Pre-operational` and the
-   interval to `100 ms`: the next frames show the change and faster transmission.
+1. **Current vehicle profile.** There are no cyclic messages or physical signals.
+   Start reports that a raw message must be added or the recording played.
+   Click **Add raw test message**, then **Start**: `0x123`, DLC 1, data `05`
+   is sent every 100 ms. Try `SET 0x123 0 127` or `INTERVAL 0x123 500`.
+   This explicitly added message is synthetic, not a car protocol definition.
 2. **Replay from start.** You see the 49 frames of the original recording. The DLC
    of `0x301` is 7. Pause, resume and try looping. Replay uses the same generated
    `.inc` recording as the ESP32 firmware.
@@ -37,7 +39,7 @@ both directions is enabled by default in the demo.
 4. **Disable the ACK** while transmitting. Transmission stops, the error counter
    increases and an error message appears. Re-enable ACK, press `RECOVER` and
    start again.
-5. **Try an invalid value.** `SET 0x701 0 256` returns an error and leaves the
+5. **Try an invalid value.** `SET 0x123 0 256` returns an error and leaves the
    message unchanged. The command line uses the firmware's real parser.
 
 In the current vehicle profile `SET_SOC`/`SET_RPM` intentionally still return an
@@ -56,7 +58,25 @@ python tools/demo.py --self-test
 The integration test checks the stopped initial state, cyclic transmission,
 signal editing, an invalid value, replaying the recording to the end and its
 DLC, automatic ramps, ACK timeout, recovery and an RX event.
-The original PC tests are still run with `python tools/check.py`.
+`python tools/check.py` runs all of these plus the converter/profile, native C++
+and isolated HTTP checks in one command. `tools/test_demo_http.py --spawn` can
+also run HTTP checks alone without a manually started server.
+
+For UI acceptance, start the demo and run:
+
+```text
+npm install --prefix .tools/browser --no-audit --no-fund playwright@1.61.1
+.tools/browser/node_modules/.bin/playwright install chromium
+node tools/test_demo_browser.cjs
+```
+
+The browser test covers the real controls, raw byte edits, fault/recovery, AUTO,
+replay completion, switching back to raw messages and mobile overflow. It saves
+review screenshots under `build/`. You can pass a different server URL as its
+first argument. Windows users can use the `.cmd` executable under `.bin`.
+
+The raw-message button stops scheduling and selects MANUAL before adding 0x123.
+This also works after a completed recording replay.
 
 The PC demo does not verify ESP32 performance, real arbitration, the transceiver,
 wiring or the car's message map. Use the

@@ -32,6 +32,10 @@ def main():
                 str(ROOT / 'tests/test_core.cpp'), '-o', str(binary)]
     subprocess.run(command, cwd=ROOT, check=True)
     subprocess.run([str(binary)], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, str(ROOT / 'tools/demo.py'), '--cxx', compiler,
+                    '--self-test'], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, str(ROOT / 'tools/test_demo_http.py'), '--spawn'],
+                   cwd=ROOT, check=True)
 
 
 if __name__ == '__main__':

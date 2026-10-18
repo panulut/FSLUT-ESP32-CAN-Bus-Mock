@@ -1,28 +1,4 @@
 {
-  "description": "Only green 0x701 has a documented payload backed by supplied capture. 1000 ms is a bench default, not a verified vehicle interval.",
-  "messages": [
-    {
-      "id": "0x701",
-      "dlc": 1,
-      "interval_ms": 1000,
-      "default_data": [5],
-      "checksum": "none",
-      "source": "CAN.xlsx Name!A7:J7 and supplied motor TXT",
-      "signals": [
-        {
-          "name": "NMT_STATE",
-          "byte": 0,
-          "width": 1,
-          "endian": "big",
-          "signed": false,
-          "scale": 1,
-          "offset": 0,
-          "min": 0,
-          "max": 255,
-          "default": 5,
-          "rate_per_second": 0
-        }
-      ]
-    }
-  ]
+  "description": "Project manager feedback: defer 0x701, 0x500 and 0x702 heartbeats. No cyclic vehicle messages are enabled until the first-phase IDs and missing encoding details are confirmed. See docs/PROTOCOL.md and docs/CAN.xlsx. Raw ADD and recording PLAY remain available.",
+  "messages": []
 }

@@ -129,6 +129,7 @@ public:
     bool start(uint64_t now) {
         if (running_) return true;
         if (hasQueuedPlayback_) return false;
+        if (mode_ != Mode::Playback && messageCount_ == 0) return false;
         if (mode_ == Mode::Playback && (!recordingCount_ || complete_)) return false;
         running_ = true; startMs_ = now; autoMs_ = now;
         for (size_t i = 0; i < messageCount_; ++i) messages_[i].nextMs = now;

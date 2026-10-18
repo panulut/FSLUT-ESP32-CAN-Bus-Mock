@@ -120,12 +120,15 @@ def self_test(binary):
         checks += 1
 
     try:
-        expect(not engine.state['running'] and len(engine.state['messages']) == 1, 'boot stopped')
+        expect(not engine.state['running'] and not engine.state['messages'] and not engine.state['signals'], 'boot stopped without deferred heartbeats')
+        engine.command(['START'])
+        expect(not engine.state['running'] and engine.events[-1]['text'].startswith('ERR no cyclic messages'), 'empty cyclic profile explains next action')
+        engine.command(['ADD 0x123 1000 1 5'])
         engine.command(['START', '@STEP 1002'])
         expect(engine.state['sent'] == 2, 'cyclic messages at 0 and 1000 ms')
-        engine.command(['SET_SIGNAL NMT_STATE 127', '@STEP 1000'])
+        engine.command(['SET 0x123 0 127', '@STEP 1000'])
         expect(engine.state['messages'][0]['data'] == '7F', 'same signal encoding')
-        engine.command(['SET 0x701 0 256'])
+        engine.command(['SET 0x123 0 256'])
         expect(engine.events[-1]['text'].startswith('ERR'), 'invalid value rejected')
         engine.command(['STOP', 'MODE PLAYBACK', 'RESTART', 'LOOP OFF', 'PLAY', '@STEP 2000'])
         expect(engine.state['complete'] and engine.state['sent'] == 52, '49 recorded frames complete')
@@ -141,7 +144,7 @@ def self_test(binary):
         engine.command(['@RX'])
         expect(engine.state['rx'] == 1, 'software RX injection')
         engine.command(['@PROFILE VEHICLE'])
-        expect(engine.state['profile'] == 'vehicle' and not engine.state['running'], 'reset to real profile')
+        expect(engine.state['profile'] == 'vehicle' and not engine.state['running'] and not engine.state['messages'], 'reset to real profile')
         print(f'PASS: {checks} demo integration checks (real C++ core, software CAN adapter)')
     finally:
         engine.close()
@@ -161,7 +164,6 @@ def main():
     token = secrets.token_urlsafe(24)
     engine = Engine(binary)
     worker = threading.Thread(target=engine.run, daemon=True)
-    url = f'http://127.0.0.1:{args.port}'
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -222,6 +224,7 @@ def main():
 
     server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
     server.daemon_threads = True
+    url = f'http://127.0.0.1:{server.server_address[1]}'
     worker.start()
     print(f'CAN demo: {url} (software CAN; no connected hardware)', flush=True)
     if not args.no_open:

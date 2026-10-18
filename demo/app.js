@@ -56,15 +56,12 @@ function render(s) {
   $('vehicle-profile').classList.toggle('active', !synthetic);
   $('synthetic-profile').classList.toggle('active', synthetic);
   $('signals').hidden = !synthetic;
-  $('profile-note').textContent = synthetic ? 'Test profile: RPM +600/s and SOC −0.5 %/s in AUTO mode. The vehicle profile is not changed.' : 'Switching profiles resets the test bus counters and stops transmission.';
+  $('profile-note').textContent = synthetic ? 'Test profile: RPM +600/s and SOC −0.5 %/s in AUTO mode. The vehicle profile is not changed.' : 'Vehicle encodings await confirmation. Use recording replay or add a raw test message. Switching profiles resets counters and stops transmission.';
   for (const signal of s.signals) {
     if (signal.name === 'RPM') { $('rpm-value').textContent = fmt(signal.value); $('rpm-bar').style.width = `${signal.value / 6000 * 100}%`; }
     if (signal.name === 'SOC') { $('soc-value').textContent = signal.value.toFixed(1) + ' %'; $('soc-bar').style.width = `${signal.value}%`; }
-    if (signal.name === 'NMT_STATE' && document.activeElement !== $('nmt')) $('nmt').value = String(signal.value);
   }
-  $('messages').innerHTML = s.messages.map(m => `<tr><td>${escape(m.id)}</td><td>${m.dlc}</td><td>${escape(m.data)}</td><td>${m.interval} ms${m.enabled ? '' : ' · off'}</td></tr>`).join('');
-  const nmt = s.messages.find(m => m.id === '0x701');
-  if (nmt && document.activeElement !== $('interval')) $('interval').value = String(nmt.interval);
+  $('messages').innerHTML = s.messages.map(m => `<tr><td>${escape(m.id)}</td><td>${m.dlc}</td><td>${escape(m.data)}</td><td>${m.interval} ms${m.enabled ? '' : ' · off'}</td></tr>`).join('') || '<tr><td colspan="4">No cyclic messages configured. Replay the recording or add a raw test message.</td></tr>';
   $('progress-fill').style.width = `${(s.complete ? s.count : s.position) / s.count * 100}%`;
   $('progress-label').textContent = `${s.complete ? s.count : s.position} / ${s.count} frames${s.complete ? ' · done' : ''}`;
   $('loop').checked = s.loop; $('ack').checked = s.ack; $('fault-box').hidden = !s.fault;
@@ -94,11 +91,10 @@ async function refresh() {
 }
 
 $('start').onclick = () => send('START');
+$('add-raw').onclick = () => send('STOP', 'MODE MANUAL', 'ADD 0x123 100 1 5');
 $('stop').onclick = () => send('STOP');
 $('pause').onclick = () => send('PAUSE');
 $('mode').onchange = () => send('STOP', `MODE ${$('mode').value}`);
-$('nmt').onchange = () => send(`SET_SIGNAL NMT_STATE ${$('nmt').value}`);
-$('interval').onchange = () => send(`INTERVAL 0x701 ${$('interval').value}`);
 $('loop').onchange = () => send(`LOOP ${$('loop').checked ? 'ON' : 'OFF'}`);
 $('ack').onchange = () => send(`@ACK ${$('ack').checked ? 'ON' : 'OFF'}`);
 $('recover').onclick = () => send('RECOVER');
