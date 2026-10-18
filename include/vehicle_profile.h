@@ -2,7 +2,6 @@
 #pragma once
 #include "can_core.h"
 inline bool loadVehicleProfile(cansim::Simulator& sim) {
-    if (!sim.add({0x701, 1, {5}, false, false}, 1000, cansim::Checksum::None)) return false;
-    if (!sim.addSignal({0x701, "NMT_STATE", 0, 1, false, false, 1.0, 0.0, 0.0, 255.0, 5.0, 0.0})) return false;
+    (void)sim; // No confirmed first-phase vehicle definitions yet.
     return true;
 }

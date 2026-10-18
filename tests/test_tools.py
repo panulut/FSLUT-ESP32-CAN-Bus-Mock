@@ -94,10 +94,18 @@ class ConverterTests(unittest.TestCase):
 
 class ProfileTests(unittest.TestCase):
     def setUp(self):
-        self.vehicle = json.loads((ROOT / 'config/vehicle.json').read_text())
+        self.vehicle = {"messages": [{
+            "id": "0x100", "dlc": 1, "interval_ms": 1000,
+            "default_data": [5], "checksum": "none", "source": "Synthetic test fixture",
+            "signals": [{"name": "TEST_STATE", "byte": 0, "width": 1,
+                         "endian": "big", "signed": False, "scale": 1,
+                         "offset": 0, "min": 0, "max": 255, "default": 5}]
+        }]}
 
     def test_reproducible_profile(self):
-        self.assertEqual(profile.generate(self.vehicle), (ROOT / 'include/vehicle_profile.h').read_text())
+        vehicle = json.loads((ROOT / 'config/vehicle.json').read_text())
+        self.assertEqual(vehicle['messages'], [])
+        self.assertEqual(profile.generate(vehicle), (ROOT / 'include/vehicle_profile.h').read_text())
 
     def test_invalid_profile_rejected(self):
         cases = []

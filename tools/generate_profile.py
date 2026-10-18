@@ -97,6 +97,8 @@ def generate(profile):
             lines.append(f'    if (!sim.addSignal({{0x{mid:X}, "{name}", {byte}, {width}, '
                          f'{little}, {signed}, {scale!r}, {offset!r}, {low!r}, {high!r}, '
                          f'{default!r}, {rate!r}}})) return false;')
+    if not messages:
+        lines.append("    (void)sim; // No confirmed first-phase vehicle definitions yet.")
     require(len(seen_names) <= 64, "at most 64 signals")
     lines.extend(["    return true;", "}", ""])
     return "\n".join(lines)

@@ -64,7 +64,12 @@ public:
         }
         if (is("STATUS") && count == 1) { host_.status(); return; }
         if (is("LIST") && count == 1) { host_.list(); return; }
-        if (is("START") && count == 1) ok = host_.start();
+        if (is("START") && count == 1) {
+            if (sim_.mode() != Mode::Playback && sim_.messageCount() == 0) {
+                host_.reply("ERR no cyclic messages configured; ADD a raw test message or PLAY the recording"); return;
+            }
+            ok = host_.start();
+        }
         else if (is("STOP") && count == 1) { host_.stop(); ok = true; }
         else if (is("PAUSE") && count == 1) { host_.pause(); ok = true; }
         else if (is("RECOVER") && count == 1) ok = host_.recover();

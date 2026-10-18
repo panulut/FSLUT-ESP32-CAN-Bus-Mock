@@ -19,21 +19,26 @@ dedicated test bench.
 5. Check with an external adapter that the software sends no CAN frames of its
    own at startup. Listen-only mode also does not acknowledge other frames.
 
+The default vehicle profile contains no cyclic messages. `START` in MANUAL/AUTO
+should return `ERR no cyclic messages configured` without transmitting.
+The 0x123 message below is synthetic and must be added explicitly after a reboot.
+
 ## 2. Controller internal loopback
 
 ```text
 CONFIG 500000 16000000 LOOPBACK
 MONITOR ON
+ADD 0x123 1000 1 5
 START
 ```
 
 Change the oscillator value to match the actual module. Expected: about once
-per second `0x701`, DLC 1, data `05`; RX and TX counters increase. Loopback tests
+per second `0x123`, DLC 1, data `05`; RX and TX counters increase. Loopback tests
 the internal controller path, not the transceiver or bus ACK.
 
 ```text
-SET_SIGNAL NMT_STATE 127
-INTERVAL 0x701 100
+SET 0x123 0 127
+INTERVAL 0x123 100
 STATUS
 STOP
 ```
@@ -46,9 +51,10 @@ transmission ends; a frame already on the bus may still complete. Wait for
 
 1. Connect a second active CAN node or an adapter in transmit/ACK mode.
    A listen-only adapter is not enough to acknowledge frames.
-2. `CONFIG 1000000 16000000 NORMAL`, `MONITOR ON`, `START`.
+2. After the loopback test has added the synthetic 0x123 message,
+   `CONFIG 1000000 16000000 NORMAL`, `MONITOR ON`, `START`.
 3. Record ID, DLC, bytes and timestamps with the external adapter. Expected:
-   `0x701` with the currently set value; on an error-free bus `TX_OK` increases
+   `0x123` with the currently set value; on an error-free bus `TX_OK` increases
    and `TX_FAILED` does not. After STOP, once the queue has drained,
    `TX_QUEUED = TX_OK + TX_FAILED`.
 4. Send an 11-bit 0x301 / DLC 7 with known bytes from the adapter.
@@ -89,8 +95,8 @@ from seven bytes to eight.
 
 ## 5. Serial errors and load
 
-1. Send `SET 0x701 0 256`, `INTERVAL 0x701 0`, `SET_SOC 75.5`,
-   `FRAME 0x701 1 0xGG` and a line longer than 191 characters. Expected: `ERR` and
+1. Send `SET 0x123 0 256`, `INTERVAL 0x123 0`, `SET_SOC 75.5`,
+   `FRAME 0x123 1 0xGG` and a line longer than 191 characters. Expected: `ERR` and
    previous data is unchanged. `SET_SOC` fails in the default profile because the
    definition is missing.
 2. Try `MODE AUTO` while transmitting. Expected: `ERR`; after stopping, the

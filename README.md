@@ -12,25 +12,31 @@ wiring and bus operation have not been tested yet.** See the
 
 ## Message definition status
 
-The original `CAN.xlsx` does not contain a finished protocol specification. The
-green ID cells on its `Name` sheet are A7 (`0x701`) and A18 (`0x500`). The task's
-exclusion of heartbeats conflicts with this. The first version makes one small
-exception: the one-byte NMT state of `0x701`, whose length and values also appear
-in the recording. The default value is `0x05` (operational), and the 1000 ms
-interval is an editable test default. The firmware starts stopped, with the CAN
-controller in listen-only mode.
+The current source is [docs/CAN.xlsx](docs/CAN.xlsx), supplied on 2026-10-18.
+The project manager explicitly deferred heartbeats `0x701`, `0x500` and `0x702`.
+They are not included in the default profile, regardless of workbook fill colours.
+The original ZIP and its extracted workbook are retained as historical inputs.
 
-The DLC and reserved bytes of `0x500` are not confirmed, so the message is not
-created by default. Byte order, signedness and checksums of the blue BMS messages
-are not guessed. `SET_SOC` and `SET_RPM` return a clear error until the
-corresponding confirmed signals are added to the profile. This version therefore
-does not yet claim to implement all of the car's physical signals. More details:
-[open protocol questions](docs/PROTOCOL.md).
+`config/vehicle.json` currently has no cyclic messages or physical signals.
+`START` in MANUAL/AUTO reports an error until a raw message is added or a confirmed
+profile is compiled. `PLAY` works immediately with the supplied motor recording.
+The firmware boots stopped with the CAN controller in listen-only mode.
 
-Raw messages can be added deliberately with the `ADD` command. Recording replay
-keeps the recording's own IDs and data; it is not limited to green messages.
+The updated workbook now names the motor fields, but first-phase CAN IDs and
+several encoding details still need confirmation. `SET_SOC` and `SET_RPM` report
+missing definitions rather than guessing the car's encoding. See the
+[field map and open questions](docs/PROTOCOL.md),
+[code walkthrough](docs/CODE_WALKTHROUGH.md) and
+[requirement coverage](docs/REQUIREMENTS.md).
+
+Raw bench messages can be added deliberately with `ADD`. Recording replay keeps
+its original IDs, payloads and DLC, including `0x297` (not relabelled `0x294`).
 
 ## Wiring and configuration
+
+`python tools/check.py` runs the native, demo engine and isolated HTTP tests.
+The optional browser test and CI jobs are described in
+[requirement coverage](docs/REQUIREMENTS.md).
 
 Want to try it without hardware first? Run `python tools/demo.py` and
 open the [local browser demo](http://127.0.0.1:8765).
@@ -99,10 +105,13 @@ Without a second CAN node you can use the MCP2515's internal loopback mode:
 ```text
 CONFIG 500000 16000000 LOOPBACK
 MONITOR ON
+ADD 0x123 1000 1 5
 START
 STATUS
 STOP
 ```
+
+`0x123` is an explicitly added synthetic bench message, not a vehicle definition.
 
 Loopback checks the controller's internal transmit/receive path. It does not check
 the transceiver, cabling or acknowledgement by another node.
@@ -114,9 +123,10 @@ transmissions. A listen-only adapter is not enough:
 CONFIG 1000000 16000000 NORMAL
 MONITOR RX ON
 MONITOR TX ON
+ADD 0x123 1000 1 5
 START
-SET_SIGNAL NMT_STATE 127
-INTERVAL 0x701 5000
+SET 0x123 0 127
+INTERVAL 0x123 5000
 STATUS
 STOP
 ```
@@ -133,13 +143,13 @@ STOP
 | `MODE MANUAL` | Cyclic messages with user values |
 | `MODE AUTO` | Cyclic messages plus linear ramps defined in the profile |
 | `MODE PLAYBACK` | Recording replay |
-| `SET 0x701 0 5` | Edit one raw message byte; byte index starts at zero |
-| `SET_SIGNAL NMT_STATE 127` | Physical value of a named signal |
+| `SET 0x123 0 5` | Edit one raw message byte; byte index starts at zero |
+| `SET_SIGNAL SIGNAL_NAME 127` | Physical value of a named signal |
 | `SET_SOC 75.5` / `SET_RPM 3500` | Aliases for the profile's `SOC`/`RPM` signals; not present in the default profile |
-| `FRAME 0x701 1 0x05` | Update a whole existing message: ID, DLC, bytes |
-| `ADD 0x500 100 3 0x05 0 0` | Example of a **user-defined raw message**: ID, interval ms, DLC, bytes; not a confirmed definition of the car's 0x500 |
-| `ENABLE 0x701 OFF` / `ON` | Remove a message from / return it to cyclic transmission |
-| `INTERVAL 0x701 1000` | Transmission interval 1..3600000 ms |
+| `FRAME 0x123 1 0x05` | Update a whole existing message: ID, DLC, bytes |
+| `ADD 0x123 1000 1 5` | Example of a **user-defined raw message**: ID, interval ms, DLC, bytes; not a confirmed definition of the car's protocol |
+| `ENABLE 0x123 OFF` / `ON` | Remove a message from / return it to cyclic transmission |
+| `INTERVAL 0x123 1000` | Transmission interval 1..3600000 ms |
 | `PLAY` | Select replay if needed and start/resume |
 | `RESTART` | Rewind replay; first `PAUSE` or `STOP`, then `RESTART` and `PLAY` |
 | `LOOP ON` / `OFF` | Replay looping |
@@ -227,7 +237,8 @@ fields and unrepresentable limits are rejected. Names are unique and uppercase.
 increases and a negative value decreases the value per second; on reaching the
 minimum or maximum the value stays at the limit. This allows defining an RPM
 rise, SOC drop and current change as soon as their car-specific encoding is
-confirmed. The default profile's NMT_STATE value does not change in AUTO mode.
+confirmed. The default profile has no physical signals. The PC demo offers a
+separately labelled synthetic RPM/SOC ramp test.
 
 `checksum="sum_id_dlc"` is **only for a separately confirmed protocol**:
 the eighth byte becomes `(CAN_ID + DLC + sum(bytes[0:7])) & 0xFF`.
